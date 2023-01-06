@@ -1,6 +1,9 @@
 program := expr*
 
-expr := expr (('+' | '-' | "*" | "/" | "^") expr)*
+expr := unaryExpr (('+' | '-' | '*' | '/' | '^') expr)*
   | ('+' | '-') atom
+
+unaryExpr := ('+' | '-') atom
+  | atom
 
 atom := numberLiteral | '(' expr ')'
