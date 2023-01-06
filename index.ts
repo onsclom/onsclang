@@ -38,7 +38,8 @@ export function tokenize(input: string): Tokenizer {
         tokenizer.row++;
         continue;
       }
-      if (["+", "-", "*", "/", "(", ")", "^"].includes(nextChar)) {
+      const operators = new Set(["+", "-", "*", "/", "(", ")", "^"]);
+      if (operators.has(nextChar)) {
         addToken(tokenizer, nextChar as Token["type"]);
         tokenizer.row++;
         continue;
