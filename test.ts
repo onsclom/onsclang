@@ -1,14 +1,21 @@
-import { tokenize, parse, prettyPrint } from "./index";
+import { runProgram } from "./index.ts";
 
-function test(input: string) {
-  const tokenizer = tokenize(input);
-  if (tokenizer.success === false) return `Tokenizer Error: ${tokenizer.error}`;
-  const parser = parse(tokenizer.tokens);
-  if (parser.success === false) return `Parser Error: ${parser.error}`;
-  return prettyPrint(parser.parseNodes);
+function test(tests: [string, number][]): void {
+  let log = "";
+  const testAmount = tests.length;
+  let testPassed = 0;
+  for (const [program, expected] of tests) {
+    const result = runProgram(program);
+    if (result === expected) testPassed++;
+    else log += `${program} failed, expected ${expected}, got ${result}\n`;
+  }
+  console.log(`${testPassed}/${testAmount} tests passed`);
+  if (log) console.log(log);
 }
 
-test("2 + a 2");
-test("2 + 3 + 4 + 5");
-test("2 + 3 - 4 * 5 / 6");
-test("2 * 4 - -3");
+test([
+  ["1 + 2", 3],
+  ["1 * 2 - 3 + 4", 3],
+  ["1 - 2", -1],
+  ["1 + 2 * 3", 7],
+]);

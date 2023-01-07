@@ -174,7 +174,9 @@ function parseExpression(
   let nextToken = tokens[parser.currentToken];
   const binaryOperators = new Set(["+", "-", "*", "/", "^"]);
   while (nextToken && binaryOperators.has(nextToken.type)) {
-    if (operatorPrecedence[nextToken.type] !== precedence) return cur;
+    const curOpPrecedence =
+      operatorPrecedence[nextToken.type as BinaryOperation["operator"]];
+    if (curOpPrecedence !== precedence) return cur;
     parser.currentToken++;
     const right = parseExpression(parser, tokens, precedence + 1);
     if (!right) return;
@@ -215,4 +217,37 @@ export function prettyPrint(nodes: Object[], indentation = 0): string {
     }
   }
   return cur;
+}
+
+function evalNode(node: ParseNode): number {
+  if (node.type === "Literal") return node.value;
+  if (node.type === "UnaryOperation") {
+    if (node.operator == "+") return +evalNode(node.right);
+    if (node.operator == "-") return -evalNode(node.right);
+  }
+  if (node.type === "BinaryOperation") {
+    if (node.operator == "+") return evalNode(node.left) + evalNode(node.right);
+    if (node.operator == "-") return evalNode(node.left) - evalNode(node.right);
+    if (node.operator == "*") return evalNode(node.left) * evalNode(node.right);
+    if (node.operator == "/") return evalNode(node.left) / evalNode(node.right);
+    if (node.operator == "^")
+      return evalNode(node.left) ** evalNode(node.right);
+  }
+  throw Error(`Unknown node type ${node.type}`);
+}
+
+function evalNodes(nodes: ParseNode[]): number {
+  let last = 0;
+  for (const node of nodes) last = evalNode(node);
+  return last;
+}
+
+export function runProgram(program: string): number | string {
+  const tokenizer = tokenize(program);
+  if (!tokenizer.success) return tokenizer.error!;
+  const tokens = tokenizer.tokens;
+  const parser = parse(tokens);
+  if (!parser.success) return parser.error!;
+  const parseNodes = parser.parseNodes;
+  return evalNodes(parseNodes);
 }
