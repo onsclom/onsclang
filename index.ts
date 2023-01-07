@@ -25,7 +25,7 @@ function addToken(tokenizer: Tokenizer, type: Token["type"], value = "") {
 }
 
 export function tokenize(input: string): Tokenizer {
-  let tokenizer: Tokenizer = {
+  const tokenizer: Tokenizer = {
     tokens: [],
     line: 0,
     row: 0,
@@ -192,7 +192,7 @@ function parseExpression(
 }
 
 export function parse(tokens: Token[]): Parser {
-  let parser: Parser = {
+  const parser: Parser = {
     parseNodes: [],
     currentToken: 0,
     success: true,
@@ -205,19 +205,6 @@ export function parse(tokens: Token[]): Parser {
 }
 
 // interpreter
-
-export function prettyPrint(nodes: Object[], indentation = 0): string {
-  let cur = "";
-  for (const node of nodes) {
-    for (const [key, value] of Object.entries(node)) {
-      cur += "  ".repeat(indentation);
-      if (value instanceof Object)
-        cur += `${key}:\n${prettyPrint([value], indentation + 1)}`;
-      else cur += `${key}: ${value}\n`;
-    }
-  }
-  return cur;
-}
 
 function evalNode(node: ParseNode): number {
   if (node.type === "Literal") return node.value;
@@ -233,6 +220,7 @@ function evalNode(node: ParseNode): number {
     if (node.operator == "^")
       return evalNode(node.left) ** evalNode(node.right);
   }
+  // TODO: make evaluater to handle errors like this
   throw Error(`Unknown node type ${node.type}`);
 }
 
