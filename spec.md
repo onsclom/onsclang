@@ -1,3 +1,6 @@
+WIP rough draft of language spec
+
+```
 program := expr*
 
 expr := unaryExpr (('+' | '-' | '*' | '/' | '^') expr)*
@@ -7,3 +10,4 @@ unaryExpr := ('+' | '-') atom
   | atom
 
 atom := numberLiteral | '(' expr ')'
+```
