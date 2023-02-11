@@ -1,119 +1,224 @@
-interface Token {
-  type: string;
+interface TokenInfo {
   index: number;
+  length: number;
+}
+
+interface BasicToken extends TokenInfo {
+  type:
+    | "indent"
+    | "dedent"
+    | "newline"
+    | "plus"
+    | "minus"
+    | "times"
+    | "divide"
+    | "assignment"
+    | "reassignment";
+}
+
+interface ValueToken extends TokenInfo {
+  type: "number" | "string" | "identifier";
   value: string;
 }
 
-type Result<T> = { ok: true; value: T } | { ok: false; error: string };
+type Token = BasicToken | ValueToken;
 
-function scanTabType(input: string): string {
+function scanTabType(input: string) {
+  // TODO: scan for actual tab type
   return "  ";
 }
 
-function matchAtIndex(input: string, index: number, match: string): boolean {
-  for (let i = 0; i < match.length; i++)
-    if (input[index + i] !== match[i]) return false;
+function matchAtIndex(input: string, index: number, pattern: string) {
+  for (let i = 0; i < pattern.length; i++)
+    if (input[index + i] !== pattern[i]) return false;
   return true;
 }
 
-function createToken(type: string, index: number, value = ""): Token {
-  if (value === "") value = type;
-  return { type, value, index };
-}
-
-const basicTokens = [
-  "+",
-  "-",
-  "*",
-  "/",
-  "%",
-  "(",
-  ")",
-  "{",
-  "}",
-  "[",
-  "]",
-  "\n",
-];
-
-function parseToken(input: string, index: number) {
-  for (const token of basicTokens) {
-    if (matchAtIndex(input, index, token)) {
-      return {
-        ok: true,
-        value: createToken(token, index),
-        index: index + token.length,
-      } as const;
-    }
-  }
-  return { ok: false, error: `Invalid token at index ${index}` } as const;
-}
-
-function parseTabs(
+function parseIndentation(
   input: string,
-  index: number,
-  tabType: string,
-  tabAmount: number
+  state: TokenizerState,
+  tabType: string
 ) {
   let tabs = 0;
-  while (matchAtIndex(input, index, tabType)) {
+  let offset = 0;
+  while (matchAtIndex(input, state.index + offset, tabType)) {
+    offset += tabType.length;
     tabs++;
-    index += tabType.length;
   }
-  if (tabs == tabAmount + 1)
-    return {
-      ok: true,
-      value: [createToken("indent", index)],
-      index,
-      tabAmount: tabs,
-    } as const;
-  if (tabs <= tabAmount)
-    return {
-      ok: true,
-      value: [...Array(tabAmount - tabs).fill(createToken("dedent", index))],
-      index,
-      tabAmount: tabs,
-    } as const;
+  if (tabs == state.indentation + 1) {
+    state.tokens.push({
+      type: "indent",
+      index: state.index,
+      length: tabType.length,
+    });
+    state.index += tabType.length;
+    state.indentation++;
+    return { ok: true } as const;
+  }
+  if (tabs <= state.indentation) {
+    [...Array(state.indentation - tabs)].forEach(() => {
+      state.tokens.push({
+        type: "dedent",
+        index: state.index,
+        length: tabType.length,
+      });
+      state.index -= tabType.length;
+      state.indentation--;
+    });
+    return { ok: true } as const;
+  }
+  return { ok: false, error: "Invalid indentation" } as const;
+}
+
+function parseBasicToken(
+  input: string,
+  state: TokenizerState,
+  type: BasicToken["type"],
+  tokenString: string
+) {
+  if (matchAtIndex(input, state.index, tokenString)) {
+    state.tokens.push({
+      type,
+      index: state.index,
+      length: tokenString.length,
+    });
+    state.index += tokenString.length;
+    return { ok: true } as const;
+  }
+  return { ok: false, error: `Token is not ${type}` } as const;
+}
+
+function parseNumber(input: string, state: TokenizerState) {
+  let value = "";
+  const ogIndex = state.index;
+  let seenPeriod = false;
+  while (
+    (input[state.index] >= "0" && input[state.index] <= "9") ||
+    (input[state.index] == "." && !seenPeriod)
+  ) {
+    if (input[state.index] == ".") seenPeriod = true;
+    value += input[state.index];
+    state.index++;
+  }
+  if (value.length > 0) {
+    state.tokens.push({
+      type: "number",
+      index: ogIndex,
+      length: value.length,
+      value,
+    });
+    return { ok: true } as const;
+  }
+  state.index = ogIndex;
+  return { ok: false, error: "Failed to parse number" } as const;
+}
+
+function parseString(input: string, state: TokenizerState) {
+  let value = "";
+  let ogIndex = state.index;
+  if (input[state.index] !== "'") return { ok: false, error: "Not a string" };
+  state.index++;
+  while (input[state.index] !== "'" && state.index < input.length) {
+    value += input[state.index];
+    state.index++;
+  }
+  if (input[state.index] == "'") {
+    state.index++;
+    state.tokens.push({
+      type: "string",
+      index: ogIndex,
+      length: state.index - ogIndex,
+      value,
+    });
+    return { ok: true } as const;
+  }
+  state.index = ogIndex;
+  return { ok: false, error: "Failed to parse string" } as const;
+}
+
+function parseIdentifier(input: string, state: TokenizerState) {
+  let value = "";
+  let ogIndex = state.index;
+  let nextChar = input[state.index];
+  while (
+    (nextChar >= "a" && nextChar <= "z") ||
+    (nextChar >= "A" && nextChar <= "Z")
+  ) {
+    value += nextChar;
+    nextChar = input[++state.index];
+  }
+
+  if (value !== "") {
+    state.tokens.push({
+      type: "identifier",
+      index: ogIndex,
+      length: state.index - ogIndex,
+      value,
+    });
+    return { ok: true } as const;
+  }
+
+  return { ok: false, error: "Failed to parse identifier" } as const;
+}
+
+function parseToken(input: string, state: TokenizerState) {
+  const success = {
+    ok: true,
+  } as const;
+  if (parseBasicToken(input, state, "newline", "\n").ok) {
+    state.newLine = true;
+    return success;
+  }
+  if (parseBasicToken(input, state, "assignment", ":=").ok) return success;
+  if (parseBasicToken(input, state, "reassignment", "<-").ok) return success;
+  if (parseBasicToken(input, state, "plus", "+").ok) return success;
+  if (parseBasicToken(input, state, "minus", "-").ok) return success;
+  if (parseBasicToken(input, state, "times", "*").ok) return success;
+  if (parseBasicToken(input, state, "divide", "/").ok) return success;
+  if (parseNumber(input, state).ok) return success;
+  if (parseString(input, state).ok) return success;
+  if (parseIdentifier(input, state).ok) return success;
+
   return {
     ok: false,
-    error: `Excess indentation at index ${index}`,
+    error: `Failed to find token at ${state.index}`,
   } as const;
 }
 
-function tokenize(input: string): Result<Token[]> {
-  const tabType = scanTabType(input);
-  const tokens: Token[] = [];
-
-  let tabAmount = 0;
-  let newLine = false;
-  let index = 0;
-
-  while (index < input.length) {
-    if (newLine) {
-      newLine = false;
-      const result = parseTabs(input, index, tabType, tabAmount);
-      if (!result.ok) return result;
-      tabAmount = result.tabAmount;
-      tokens.push(...result.value);
-      index = result.index;
-    }
-
-    const result = parseToken(input, index);
-    if (!result.ok) return result;
-    tokens.push(result.value);
-    index = result.index;
-    if (result.value.type === "\n") newLine = true;
-  }
-
-  [...Array(tabAmount)].forEach(() =>
-    tokens.push(createToken("dedent", index))
-  );
-
-  return { ok: true, value: tokens };
+interface TokenizerState {
+  tokens: Token[];
+  index: number;
+  newLine: boolean;
+  indentation: number;
 }
 
-tokenize(`+-
-  -
-    -
-      -
-  -`);
+export function tokenize(
+  input: string
+): { ok: true; tokens: Token[] } | { ok: false; error: string } {
+  const tabType = scanTabType(input);
+  let state: TokenizerState = {
+    tokens: [],
+    index: 0,
+    newLine: true,
+    indentation: 0,
+  };
+
+  while (state.index < input.length) {
+    if (state.newLine) {
+      state.newLine = false;
+      const indentationResult = parseIndentation(input, state, tabType);
+      if (!indentationResult.ok) return indentationResult;
+    } else if (input[state.index] == " ") {
+      state.index++;
+      continue;
+    } else {
+      const result = parseToken(input, state);
+      if (!result.ok) return result;
+    }
+  }
+
+  return {
+    ok: true,
+    tokens: state.tokens,
+  };
+}
