@@ -12,6 +12,8 @@ interface BasicToken extends TokenInfo {
     | "minus"
     | "times"
     | "divide"
+    | "leftParen"
+    | "rightParen"
     | "assignment"
     | "reassignment";
 }
@@ -21,7 +23,7 @@ interface ValueToken extends TokenInfo {
   value: string;
 }
 
-type Token = BasicToken | ValueToken;
+export type Token = BasicToken | ValueToken;
 
 function scanTabType(input: string) {
   // TODO: scan for actual tab type
@@ -175,6 +177,8 @@ function parseToken(input: string, state: TokenizerState) {
   if (parseBasicToken(input, state, "minus", "-").ok) return success;
   if (parseBasicToken(input, state, "times", "*").ok) return success;
   if (parseBasicToken(input, state, "divide", "/").ok) return success;
+  if (parseBasicToken(input, state, "leftParen", "(").ok) return success;
+  if (parseBasicToken(input, state, "rightParen", ")").ok) return success;
   if (parseNumber(input, state).ok) return success;
   if (parseString(input, state).ok) return success;
   if (parseIdentifier(input, state).ok) return success;

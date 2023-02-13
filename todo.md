@@ -1,0 +1,3 @@
+- fix tab scanning
+- do not scan indents in between ([{}])
+- allow empty rows like "\n\n\n\n"
