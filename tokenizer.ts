@@ -18,7 +18,7 @@ interface BasicToken extends TokenInfo {
     | "reassignment";
 }
 
-interface ValueToken extends TokenInfo {
+export interface ValueToken extends TokenInfo {
   type: "number" | "string" | "identifier";
   value: string;
 }
@@ -211,13 +211,13 @@ export function tokenize(
     if (state.newLine) {
       state.newLine = false;
       const indentationResult = parseIndentation(input, state, tabType);
-      if (!indentationResult.ok) return indentationResult;
+      if (indentationResult.ok === false) return indentationResult;
     } else if (input[state.index] == " ") {
       state.index++;
       continue;
     } else {
       const result = parseToken(input, state);
-      if (!result.ok) return result;
+      if (result.ok === false) return result;
     }
   }
 

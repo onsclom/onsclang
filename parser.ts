@@ -1,4 +1,4 @@
-import type { Token } from "./tokenizer";
+import type { Token, ValueToken } from "./tokenizer";
 
 /*
   binary operators:
@@ -23,35 +23,35 @@ import type { Token } from "./tokenizer";
     atom := number | string | identifier | "(" expr ")"
 */
 
-interface BinaryNode {
+export interface BinaryNode {
   type: "binaryExpr";
   operator: Token;
   left: ASTNode;
   right: ASTNode;
 }
 
-interface UnaryNode {
+export interface UnaryNode {
   type: "unaryExpr";
   operator: Token;
   right: ASTNode;
 }
 
-interface NumberNode {
+export interface NumberNode {
   type: "number";
-  value: Token;
+  value: ValueToken;
 }
 
-interface StringNode {
+export interface StringNode {
   type: "string";
-  value: Token;
+  value: ValueToken;
 }
 
-interface IdentifierNode {
+export interface IdentifierNode {
   type: "identifier";
-  value: Token;
+  value: ValueToken;
 }
 
-type ASTNode =
+export type ASTNode =
   | BinaryNode
   | UnaryNode
   | NumberNode
@@ -189,10 +189,10 @@ function parseSumExpr(tokens: Token[], state: ParserState) {
 function parseAssignExpr(tokens: Token[], state: ParserState) {
   let oldIndex = state.index;
   const identifierResult = expect(tokens, state, "identifier");
-  if (!identifierResult.ok) return identifierResult;
-  let root: ASTNode = {
+  if (identifierResult.ok === false) return identifierResult;
+  let root: IdentifierNode | BinaryNode = {
     type: "identifier",
-    value: identifierResult.token,
+    value: identifierResult.token as ValueToken,
   };
   let cur: BinaryNode | null = null;
 
@@ -249,7 +249,7 @@ interface ParserState {
 export function parse(tokens: Token[]):
   | {
       ok: true;
-      ast: Token[];
+      ast: ASTNode[];
     }
   | {
       ok: false;
@@ -258,7 +258,7 @@ export function parse(tokens: Token[]):
   let state: ParserState = {
     index: 0,
   };
-  let ast: Token[] = [];
+  let ast: ASTNode[] = [];
   while (state.index < tokens.length) {
     const result = parseExpr(tokens, state);
     if (!result.ok) return result;
@@ -267,28 +267,8 @@ export function parse(tokens: Token[]):
     // expect /n or EOF
     if (state.index < tokens.length) {
       const result = expect(tokens, state, "newline");
-      if (!result.ok) return result;
+      if (result.ok === false) return result;
     }
   }
   return { ok: true, ast };
 }
-
-parse([
-  {
-    type: "identifier",
-    value: "a",
-    index: 0,
-    length: 1,
-  },
-  {
-    type: "plus",
-    index: 2,
-    length: 1,
-  },
-  {
-    type: "identifier",
-    value: "b",
-    index: 4,
-    length: 1,
-  },
-]);
